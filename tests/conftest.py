@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import socket
+from unittest.mock import patch
 from uuid import uuid4
 
 import pytest
@@ -23,13 +24,14 @@ def demo_server():
         sock.bind(("127.0.0.1", 0))
         port = sock.getsockname()[1]
 
-    server = Server(server_uuid=uuid4())
-    server.start_insecure("127.0.0.1", port, enable_discovery=False)
-    yield server, port
-    server.stop()
-    # sila2 never shuts down the executor it hands to grpc.server(), which
-    # leaves worker threads behind that trip HA's lingering-thread check.
-    server.grpc_server._state.thread_pool.shutdown(wait=True)
-    # ...and instantiates a Zeroconf even with discovery disabled, whose
-    # event-loop thread also lingers unless closed.
-    server._SilaServer__service_broadcaster.zc.close()
+    # sila2 instantiates a real Zeroconf even with discovery disabled; that
+    # leaves a lingering event-loop thread and fails outright on CI runners
+    # without a multicast-capable interface. The tests never use mDNS.
+    with patch("sila2.discovery.broadcaster.Zeroconf"):
+        server = Server(server_uuid=uuid4())
+        server.start_insecure("127.0.0.1", port, enable_discovery=False)
+        yield server, port
+        server.stop()
+        # sila2 never shuts down the executor it hands to grpc.server(),
+        # which leaves worker threads that trip HA's lingering-thread check.
+        server.grpc_server._state.thread_pool.shutdown(wait=True)

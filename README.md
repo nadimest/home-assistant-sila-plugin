@@ -102,9 +102,12 @@ v1.1.
 The integration card logo in HA is served from the central
 [home-assistant/brands](https://github.com/home-assistant/brands) repo —
 integrations cannot ship it locally. Ready-to-submit assets live in
-`brands/custom_integrations/sila/`; PR that folder to the brands repo and
-every HA instance will pick up the logo. Until then HA shows a placeholder.
-Entity icons (flask, progress, play) are set in code and work out of the box.
+`brands/custom_integrations/sila/`: the official SiLA wordmark
+(from [sila-standard.com](https://sila-standard.com)) as `icon.png` /
+`icon@2x.png`, plus white `dark_icon` variants for HA's dark theme. PR that
+folder to the brands repo and every HA instance will pick up the logo.
+Until then HA shows a placeholder. Entity icons (flask, progress, play) are
+set in code and work out of the box.
 
 ## Architecture notes
 

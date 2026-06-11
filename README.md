@@ -260,11 +260,11 @@ target, plus an observable `Equilibrate` command that reports progress.
 
 ## Branding
 
-The integration card logo is served from the central
-[home-assistant/brands](https://github.com/home-assistant/brands) repo —
-integrations cannot ship it locally, so a placeholder shows until the assets
-in `brands/custom_integrations/sila/` (official SiLA wordmark + dark-theme
-variants) are submitted there.
+The integration ships the official SiLA wordmark (light + dark variants) in
+`custom_components/sila/brand/`. Home Assistant **2026.3 and newer** serves
+these local brand images directly on the integration card; older versions
+show a placeholder (the central brands repo no longer accepts custom
+integration submissions).
 
 ## Roadmap
 

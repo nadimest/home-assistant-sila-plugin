@@ -1,0 +1,74 @@
+"""Buttons for parameterless SiLA commands.
+
+Commands that take parameters are exposed through the ``sila.call_command``
+service instead, since buttons cannot carry arguments.
+"""
+
+from __future__ import annotations
+
+import logging
+from typing import Any
+
+from homeassistant.components.button import ButtonEntity
+from homeassistant.core import HomeAssistant
+from homeassistant.exceptions import HomeAssistantError
+from homeassistant.helpers.entity_platform import AddEntitiesCallback
+
+from .const import SILA_SERVICE_FEATURE
+from .coordinator import SilaConfigEntry, SilaCoordinator
+from .entity import SilaEntity
+
+_LOGGER = logging.getLogger(__name__)
+
+
+async def async_setup_entry(
+    hass: HomeAssistant,
+    entry: SilaConfigEntry,
+    async_add_entities: AddEntitiesCallback,
+) -> None:
+    """Create a button for every parameterless unobservable command."""
+    coordinator = entry.runtime_data
+    entities: list[ButtonEntity] = []
+
+    for feature_id, feature in coordinator.client._features.items():
+        if feature_id == SILA_SERVICE_FEATURE:
+            # SetServerName etc. are not useful as buttons.
+            continue
+        for command_id, command in feature._unobservable_commands.items():
+            if command.parameters.fields:
+                continue
+            entities.append(
+                SilaCommandButton(coordinator, feature_id, feature, command_id, command)
+            )
+
+    async_add_entities(entities)
+
+
+class SilaCommandButton(SilaEntity, ButtonEntity):
+    """Fires a parameterless SiLA command."""
+
+    def __init__(
+        self,
+        coordinator: SilaCoordinator,
+        feature_id: str,
+        feature: Any,
+        command_id: str,
+        command: Any,
+    ) -> None:
+        super().__init__(coordinator)
+        self._feature_id = feature_id
+        self._command_id = command_id
+        self._attr_unique_id = (
+            f"{coordinator.server_info.server_uuid}_{feature_id}_{command_id}"
+        )
+        self._attr_name = f"{feature._display_name} {command._display_name}"
+
+    async def async_press(self) -> None:
+        client_feature = getattr(self.coordinator.client, self._feature_id)
+        command = getattr(client_feature, self._command_id)
+        try:
+            await self.hass.async_add_executor_job(command)
+        except Exception as err:
+            raise HomeAssistantError(
+                f"SiLA command {self._feature_id}.{self._command_id} failed: {err}"
+            ) from err

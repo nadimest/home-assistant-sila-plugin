@@ -1,0 +1,64 @@
+{
+  "config": {
+    "flow_title": "{name}",
+    "step": {
+      "user": {
+        "title": "Connect to a SiLA server",
+        "data": {
+          "host": "Host",
+          "port": "Port",
+          "tls_mode": "Connection security"
+        },
+        "data_description": {
+          "tls_mode": "Most lab instruments use self-signed certificates; 'Pin server certificate' fetches and trusts the certificate the server presents right now."
+        }
+      },
+      "zeroconf_confirm": {
+        "title": "SiLA server found",
+        "description": "Add the SiLA server {name} at {host}:{port} to Home Assistant?",
+        "data": {
+          "tls_mode": "Connection security"
+        }
+      }
+    },
+    "error": {
+      "cannot_connect": "Failed to connect to the SiLA server. Check host, port, and connection security mode."
+    },
+    "abort": {
+      "already_configured": "This SiLA server is already configured."
+    }
+  },
+  "selector": {
+    "tls_mode": {
+      "options": {
+        "pin": "Pin server certificate (recommended for lab instruments)",
+        "system": "System CA trust store",
+        "insecure": "No encryption (development servers only)"
+      }
+    }
+  },
+  "services": {
+    "call_command": {
+      "name": "Call SiLA command",
+      "description": "Calls a command on a SiLA server, optionally with parameters.",
+      "fields": {
+        "device_id": {
+          "name": "Device",
+          "description": "The SiLA server to call the command on."
+        },
+        "feature": {
+          "name": "Feature",
+          "description": "SiLA feature identifier, e.g. TemperatureController."
+        },
+        "command": {
+          "name": "Command",
+          "description": "Command identifier, e.g. SetTargetTemperature."
+        },
+        "parameters": {
+          "name": "Parameters",
+          "description": "Command parameters as a mapping of parameter identifier to value."
+        }
+      }
+    }
+  }
+}

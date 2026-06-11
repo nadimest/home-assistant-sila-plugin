@@ -1,0 +1,22 @@
+call_command:
+  fields:
+    device_id:
+      required: true
+      selector:
+        device:
+          integration: sila
+    feature:
+      required: true
+      example: TemperatureController
+      selector:
+        text:
+    command:
+      required: true
+      example: SetTargetTemperature
+      selector:
+        text:
+    parameters:
+      required: false
+      example: '{"TargetTemperature": 37.0}'
+      selector:
+        object:

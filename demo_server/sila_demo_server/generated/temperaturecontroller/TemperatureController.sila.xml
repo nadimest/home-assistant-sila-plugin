@@ -1,0 +1,43 @@
+<Feature xmlns="http://www.sila-standard.org" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" Category="demo" FeatureVersion="1.0" MaturityLevel="Draft" Originator="io.unitelabs" SiLA2Version="1.0" xsi:schemaLocation="http://www.sila-standard.org https://gitlab.com/SiLA2/sila_base/raw/master/schema/FeatureDefinition.xsd">
+  <Identifier>TemperatureController</Identifier>
+  <DisplayName>Temperature Controller</DisplayName>
+  <Description>Demo feature: controls and reports the temperature of a device.</Description>
+  <Property>
+    <Identifier>CurrentTemperature</Identifier>
+    <DisplayName>Current Temperature</DisplayName>
+    <Description>The current temperature in degrees Celsius.</Description>
+    <Observable>Yes</Observable>
+    <DataType>
+      <Basic>Real</Basic>
+    </DataType>
+  </Property>
+  <Property>
+    <Identifier>TargetTemperature</Identifier>
+    <DisplayName>Target Temperature</DisplayName>
+    <Description>The target temperature in degrees Celsius.</Description>
+    <Observable>No</Observable>
+    <DataType>
+      <Basic>Real</Basic>
+    </DataType>
+  </Property>
+  <Command>
+    <Identifier>SetTargetTemperature</Identifier>
+    <DisplayName>Set Target Temperature</DisplayName>
+    <Description>Sets the target temperature.</Description>
+    <Observable>No</Observable>
+    <Parameter>
+      <Identifier>TargetTemperature</Identifier>
+      <DisplayName>Target Temperature</DisplayName>
+      <Description>The new target temperature in degrees Celsius.</Description>
+      <DataType>
+        <Basic>Real</Basic>
+      </DataType>
+    </Parameter>
+  </Command>
+  <Command>
+    <Identifier>Reset</Identifier>
+    <DisplayName>Reset</DisplayName>
+    <Description>Resets the target temperature to the default (21 degrees Celsius).</Description>
+    <Observable>No</Observable>
+  </Command>
+</Feature>

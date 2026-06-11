@@ -1,0 +1,52 @@
+syntax = "proto3";
+
+import "SiLAFramework.proto";
+
+package sila2.io.unitelabs.demo.temperaturecontroller.v1;
+
+/* Demo feature: controls and reports the temperature of a device. */
+service TemperatureController {
+  /* Sets the target temperature. */
+  rpc SetTargetTemperature (sila2.io.unitelabs.demo.temperaturecontroller.v1.SetTargetTemperature_Parameters) returns (sila2.io.unitelabs.demo.temperaturecontroller.v1.SetTargetTemperature_Responses) {}
+  /* Resets the target temperature to the default (21 degrees Celsius). */
+  rpc Reset (sila2.io.unitelabs.demo.temperaturecontroller.v1.Reset_Parameters) returns (sila2.io.unitelabs.demo.temperaturecontroller.v1.Reset_Responses) {}
+  /* The current temperature in degrees Celsius. */
+  rpc Subscribe_CurrentTemperature (sila2.io.unitelabs.demo.temperaturecontroller.v1.Subscribe_CurrentTemperature_Parameters) returns (stream sila2.io.unitelabs.demo.temperaturecontroller.v1.Subscribe_CurrentTemperature_Responses) {}
+  /* The target temperature in degrees Celsius. */
+  rpc Get_TargetTemperature (sila2.io.unitelabs.demo.temperaturecontroller.v1.Get_TargetTemperature_Parameters) returns (sila2.io.unitelabs.demo.temperaturecontroller.v1.Get_TargetTemperature_Responses) {}
+}
+
+/* Parameters for SetTargetTemperature */
+message SetTargetTemperature_Parameters {
+  sila2.org.silastandard.Real TargetTemperature = 1;  /* The new target temperature in degrees Celsius. */
+}
+
+/* Responses of SetTargetTemperature */
+message SetTargetTemperature_Responses {
+}
+
+/* Parameters for Reset */
+message Reset_Parameters {
+}
+
+/* Responses of Reset */
+message Reset_Responses {
+}
+
+/* Parameters for CurrentTemperature */
+message Subscribe_CurrentTemperature_Parameters {
+}
+
+/* Responses of CurrentTemperature */
+message Subscribe_CurrentTemperature_Responses {
+  sila2.org.silastandard.Real CurrentTemperature = 1;  /* The current temperature in degrees Celsius. */
+}
+
+/* Parameters for TargetTemperature */
+message Get_TargetTemperature_Parameters {
+}
+
+/* Responses of TargetTemperature */
+message Get_TargetTemperature_Responses {
+  sila2.org.silastandard.Real TargetTemperature = 1;  /* The target temperature in degrees Celsius. */
+}

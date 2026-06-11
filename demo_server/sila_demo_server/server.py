@@ -26,7 +26,7 @@ class Server(SilaServer):
             server_description=description,
             server_type="DemoThermostat",
             server_version="0.1",
-            server_vendor_url="https://github.com/nadim/home-assistant-sila-plugin",
+            server_vendor_url="https://github.com/nadimest/home-assistant-sila-plugin",
             server_uuid=server_uuid if server_uuid is not None else uuid4(),
         )
 

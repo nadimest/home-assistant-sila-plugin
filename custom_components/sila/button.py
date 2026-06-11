@@ -102,11 +102,17 @@ class SilaCommandButton(SilaEntity, ButtonEntity):
         client_feature = getattr(self.coordinator.client, self._feature_id)
         command = getattr(client_feature, self._command_id)
         try:
-            await self.hass.async_add_executor_job(command)
+            response = await self.hass.async_add_executor_job(command)
         except Exception as err:
             raise HomeAssistantError(
                 f"SiLA command {self._feature_id}.{self._command_id} failed: {err}"
             ) from err
+        self.coordinator.last_command_parameters[
+            (self._feature_id, self._command_id)
+        ] = {}
+        self.coordinator.publish_command_responses(
+            self._feature_id, self._command_id, response
+        )
 
 
 class SilaObservableCommandButton(SilaCommandButton):

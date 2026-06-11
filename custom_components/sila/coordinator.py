@@ -14,11 +14,12 @@ if TYPE_CHECKING:
     from .command_runner import SilaCommandRunner
 
 from homeassistant.config_entries import ConfigEntry
-from homeassistant.core import HomeAssistant
+from homeassistant.core import HomeAssistant, callback
+from homeassistant.helpers.dispatcher import async_dispatcher_send
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
 
 from .connection import SilaServerInfo
-from .const import DOMAIN, POLL_INTERVAL_SECONDS
+from .const import DOMAIN, POLL_INTERVAL_SECONDS, command_responses_signal
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -58,6 +59,27 @@ class SilaCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         self.server_info = server_info
         # Set right after construction in async_setup_entry.
         self.command_runner: SilaCommandRunner = None  # type: ignore[assignment]
+        # Last parameters used per (feature, command), from any invocation
+        # path. Lets the image entities re-run a snapshot command on refresh.
+        self.last_command_parameters: dict[tuple[str, str], dict[str, Any]] = {}
+
+    @callback
+    def publish_command_responses(
+        self, feature_id: str, command_id: str, responses: Any
+    ) -> None:
+        """Broadcast a command's raw (undecoded-for-display) responses.
+
+        Image entities pick binary payloads out of these; values must not be
+        stringified before this point.
+        """
+        async_dispatcher_send(
+            self.hass,
+            command_responses_signal(self.config_entry.entry_id),
+            self.server_info.server_uuid,
+            feature_id,
+            command_id,
+            responses,
+        )
 
     async def _async_update_data(self) -> dict[str, Any]:
         return await self.hass.async_add_executor_job(self._fetch_all)

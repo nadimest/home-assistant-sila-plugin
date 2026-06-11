@@ -5,7 +5,9 @@ from uuid import UUID, uuid4
 
 from sila2.server import SilaServer
 
+from .feature_implementations.camera_impl import CameraImpl
 from .feature_implementations.temperaturecontroller_impl import TemperatureControllerImpl
+from .generated.camera import CameraFeature
 from .generated.temperaturecontroller import TemperatureControllerFeature
 
 
@@ -32,3 +34,6 @@ class Server(SilaServer):
 
         self.temperaturecontroller = TemperatureControllerImpl(self)
         self.set_feature_implementation(TemperatureControllerFeature, self.temperaturecontroller)
+
+        self.camera = CameraImpl(self)
+        self.set_feature_implementation(CameraFeature, self.camera)

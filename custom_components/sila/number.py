@@ -157,12 +157,20 @@ class SilaCommandNumber(SilaEntity, NumberEntity):
                 getattr(self.coordinator.client, self._feature_id), self._command_id
             )
             try:
-                await self.hass.async_add_executor_job(lambda: command(**parameters))
+                response = await self.hass.async_add_executor_job(
+                    lambda: command(**parameters)
+                )
             except Exception as err:
                 raise HomeAssistantError(
                     f"SiLA command {self._feature_id}.{self._command_id} "
                     f"failed: {err}"
                 ) from err
+            self.coordinator.last_command_parameters[
+                (self._feature_id, self._command_id)
+            ] = parameters
+            self.coordinator.publish_command_responses(
+                self._feature_id, self._command_id, response
+            )
         if self._mirror_key is not None:
             await self.coordinator.async_request_refresh()
         else:

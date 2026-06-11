@@ -1,0 +1,27 @@
+<Feature xmlns="http://www.sila-standard.org" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" Category="demo" FeatureVersion="1.0" MaturityLevel="Draft" Originator="io.unitelabs" SiLA2Version="1.0" xsi:schemaLocation="http://www.sila-standard.org https://gitlab.com/SiLA2/sila_base/raw/master/schema/FeatureDefinition.xsd">
+  <Identifier>Camera</Identifier>
+  <DisplayName>Camera</DisplayName>
+  <Description>Demo feature: snaps JPEG frames at an adjustable digital zoom level.</Description>
+  <Command>
+    <Identifier>GrabSnapshot</Identifier>
+    <DisplayName>Grab Snapshot</DisplayName>
+    <Description>Takes a photo at the desired zoom level.</Description>
+    <Observable>No</Observable>
+    <Parameter>
+      <Identifier>Zoom</Identifier>
+      <DisplayName>Zoom Level</DisplayName>
+      <Description>Multiplier for the digital zoom level (e.g. 1.0, 2.0).</Description>
+      <DataType>
+        <Basic>Real</Basic>
+      </DataType>
+    </Parameter>
+    <Response>
+      <Identifier>ImagePayload</Identifier>
+      <DisplayName>Image Payload</DisplayName>
+      <Description>The captured frame as JPEG-encoded bytes.</Description>
+      <DataType>
+        <Basic>Binary</Basic>
+      </DataType>
+    </Response>
+  </Command>
+</Feature>

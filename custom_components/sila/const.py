@@ -44,6 +44,11 @@ def command_update_signal(entry_id: str) -> str:
     return f"{DOMAIN}_{entry_id}_command_update"
 
 
+def command_responses_signal(entry_id: str) -> str:
+    """Dispatcher signal carrying raw command responses (e.g. image bytes)."""
+    return f"{DOMAIN}_{entry_id}_command_responses"
+
+
 def cloud_new_server_signal(entry_id: str) -> str:
     """Dispatcher signal for a SiLA server newly connected to the cloud endpoint."""
     return f"{DOMAIN}_{entry_id}_cloud_new_server"

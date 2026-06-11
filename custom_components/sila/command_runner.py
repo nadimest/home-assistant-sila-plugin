@@ -87,6 +87,7 @@ class SilaCommandRunner:
             execution_uuid=str(instance.execution_uuid),
         )
         self.executions[(feature_id, command_id)] = execution
+        self._coordinator.last_command_parameters[(feature_id, command_id)] = parameters
         self._fire_event(EVENT_COMMAND_STARTED, execution)
         self._notify(execution)
 
@@ -106,6 +107,9 @@ class SilaCommandRunner:
         try:
             responses = await self._hass.async_add_executor_job(
                 instance.get_responses
+            )
+            self._coordinator.publish_command_responses(
+                execution.feature_id, execution.command_id, responses
             )
             if hasattr(responses, "_asdict"):
                 execution.responses = {

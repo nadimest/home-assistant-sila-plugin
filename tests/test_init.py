@@ -295,6 +295,95 @@ async def test_call_command_service(hass: HomeAssistant, demo_server) -> None:
     await hass.async_block_till_done()
 
 
+async def test_snapshot_image(hass: HomeAssistant, demo_server, hass_client) -> None:
+    """Commands returning a single Binary get an image entity.
+
+    The image updates from every invocation path (number entity, service)
+    and re-runs the command with the last parameters on update_entity.
+    """
+    from homeassistant.setup import async_setup_component
+
+    from demo_server.sila_demo_server.feature_implementations.camera_impl import (
+        _FRAMES,
+    )
+
+    server, port = demo_server
+    assert await async_setup_component(hass, "homeassistant", {})
+
+    entry = MockConfigEntry(
+        domain=DOMAIN,
+        unique_id=str(server.server_uuid),
+        data={
+            CONF_HOST: "127.0.0.1",
+            CONF_PORT: port,
+            CONF_TLS_MODE: TLS_MODE_INSECURE,
+            CONF_PINNED_CERT: None,
+        },
+    )
+    entry.add_to_hass(hass)
+    assert await hass.config_entries.async_setup(entry.entry_id)
+    await hass.async_block_till_done()
+
+    image_entity = "image.demo_thermostat_camera_image_payload"
+    assert hass.states.get(image_entity).state == "unknown"
+
+    # Setting the zoom number fires GrabSnapshot; the response lands in the image.
+    await hass.services.async_call(
+        "number",
+        "set_value",
+        {"entity_id": "number.demo_thermostat_camera_grab_snapshot", "value": 2.0},
+        blocking=True,
+    )
+    await hass.async_block_till_done()
+    assert server.camera.last_zoom == 2.0
+    assert server.camera.snapshot_count == 1
+    first_updated = hass.states.get(image_entity).state
+    assert first_updated != "unknown"
+
+    client = await hass_client()
+    resp = await client.get(f"/api/image_proxy/{image_entity}")
+    assert resp.status == 200
+    assert resp.content_type == "image/jpeg"
+    assert await resp.read() == _FRAMES[0]
+
+    # update_entity re-runs the command with the remembered parameters.
+    await hass.services.async_call(
+        "homeassistant",
+        "update_entity",
+        {"entity_id": image_entity},
+        blocking=True,
+    )
+    await hass.async_block_till_done()
+    assert server.camera.snapshot_count == 2
+    assert server.camera.last_zoom == 2.0
+    resp = await client.get(f"/api/image_proxy/{image_entity}")
+    assert await resp.read() == _FRAMES[1]
+
+    # The service path updates the image too.
+    device = dr.async_get(hass).async_get_device(
+        identifiers={(DOMAIN, str(server.server_uuid))}
+    )
+    await hass.services.async_call(
+        DOMAIN,
+        "call_command",
+        {
+            "device_id": device.id,
+            "feature": "Camera",
+            "command": "GrabSnapshot",
+            "parameters": {"Zoom": 3.0},
+        },
+        blocking=True,
+    )
+    await hass.async_block_till_done()
+    assert server.camera.last_zoom == 3.0
+    resp = await client.get(f"/api/image_proxy/{image_entity}")
+    assert await resp.read() == _FRAMES[2]
+    assert hass.states.get(image_entity).state > first_updated
+
+    await hass.config_entries.async_unload(entry.entry_id)
+    await hass.async_block_till_done()
+
+
 async def test_observable_command(hass: HomeAssistant, demo_server) -> None:
     """Observable commands run via the service, fire events, update sensors."""
     server, port = demo_server

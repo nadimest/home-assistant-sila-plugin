@@ -42,6 +42,9 @@ installed automatically by Home Assistant on first load.
   push straight into Home Assistant; unobservable properties are polled.
 - **Long-running (observable) commands** with live progress, estimated
   remaining time, and completion events for automations.
+- **Camera-style commands become images** — a command returning a single
+  Binary payload (e.g. `GrabSnapshot → ImagePayload`) gets an image entity
+  showing the latest capture on your dashboards.
 - **Cloud gateway** for SiLA 2 v1.1 server-initiated connections, with
   automatic device registration, unavailable-on-disconnect, and in-place
   recovery when the instrument redials.
@@ -61,6 +64,7 @@ installed automatically by Home Assistant on first load.
 | Command, no parameters | Button |
 | Command, one numeric parameter | Number (set it → command fires) |
 | Command, other signatures | `sila.call_command` service |
+| Command returning a single Binary (e.g. a snapshot) | Image entity showing the latest payload |
 | Observable command execution | Status sensor (`idle`/`waiting`/`running`/`finishedSuccessfully`/`finishedWithError`) + events |
 | Server online/offline | Entity availability |
 
@@ -170,6 +174,36 @@ actions:
       message: "Centrifuge run finished: {{ trigger.event.data.status }}"
 ```
 
+## Snapshots and other binary results
+
+Any command whose responses consist of exactly one `Binary` value gets an
+**image entity** — the SiLA way of modelling instrument cameras, plate
+readers exporting result images, and similar. The raw bytes arrive directly
+in the gRPC response (no base64 round-trip), are content-sniffed
+(JPEG/PNG/GIF/WebP), and served through Home Assistant's authenticated
+image API, so picture cards and notifications work out of the box.
+
+The image refreshes from **every** invocation path: the command's button or
+number entity, `sila.call_command`, and observable commands when they
+finish. The entity also remembers the last-used parameters, so refreshing it
+re-runs the command:
+
+```yaml
+# An automation that takes a fresh snapshot every hour
+triggers:
+  - trigger: time_pattern
+    minutes: 0
+actions:
+  - action: homeassistant.update_entity
+    target:
+      entity_id: image.my_microscope_camera_image_payload
+```
+
+For a command with parameters, run it once (entity or service) so the
+integration learns the parameter values to replay; parameterless commands
+can be refreshed immediately. Payloads must be embedded SiLA binaries
+(≤ 2 MB per the SiLA spec) — see limitations.
+
 ## The cloud gateway (server-initiated connections)
 
 SiLA 2 v1.1 defines *cloud connectivity*: instead of listening for clients,
@@ -227,7 +261,8 @@ on the roadmap).
 
 ## Known limitations
 
-- SiLA binary transfer (large payloads) is not supported.
+- SiLA binary transfer (payloads over 2 MB) is not supported; embedded
+  binaries — which cover snapshot-style commands — work.
 - SiLA client metadata (e.g. lock controller) is not yet sent with calls.
 - Observable command *intermediate responses* are not surfaced (execution
   state and progress are).
@@ -253,10 +288,11 @@ python3 -m venv .venv
 ./scripts/dev.sh bridge   # dial the demo server into a cloud endpoint
 ```
 
-The demo server (`demo_server/`) is generated from
-`demo_server/TemperatureController.sila.xml` with `sila2.code_generator` and
-simulates a thermostat: an observable temperature drifting toward a settable
-target, plus an observable `Equilibrate` command that reports progress.
+The demo server (`demo_server/`) is generated from the feature definitions
+in `demo_server/*.sila.xml` with `sila2.code_generator` and simulates a
+thermostat — an observable temperature drifting toward a settable target,
+plus an observable `Equilibrate` command that reports progress — and a
+camera whose `GrabSnapshot` command returns cycling JPEG frames.
 
 ## Branding
 
@@ -271,6 +307,7 @@ integration submissions).
 - [x] Discovery, dynamic entities, buttons/numbers, `call_command` service
 - [x] Observable commands with progress + events
 - [x] SiLA 2 v1.1 cloud gateway (server-initiated connections)
+- [x] Image entities for commands returning binary payloads (snapshots)
 - [ ] TLS for the cloud endpoint
 - [ ] SiLA client metadata (lock controller) support
 - [ ] Binary transfer

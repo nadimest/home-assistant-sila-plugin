@@ -19,7 +19,7 @@
     "sila2==0.14.0",
     "grpcio-tools<1.76"
   ],
-  "version": "0.1.0",
+  "version": "0.2.0",
   "zeroconf": [
     "_sila._tcp.local."
   ]

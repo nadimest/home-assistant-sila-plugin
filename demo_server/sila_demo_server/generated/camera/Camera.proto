@@ -1,0 +1,21 @@
+syntax = "proto3";
+
+import "SiLAFramework.proto";
+
+package sila2.io.unitelabs.demo.camera.v1;
+
+/* Demo feature: snaps JPEG frames at an adjustable digital zoom level. */
+service Camera {
+  /* Takes a photo at the desired zoom level. */
+  rpc GrabSnapshot (sila2.io.unitelabs.demo.camera.v1.GrabSnapshot_Parameters) returns (sila2.io.unitelabs.demo.camera.v1.GrabSnapshot_Responses) {}
+}
+
+/* Parameters for GrabSnapshot */
+message GrabSnapshot_Parameters {
+  sila2.org.silastandard.Real Zoom = 1;  /* Multiplier for the digital zoom level (e.g. 1.0, 2.0). */
+}
+
+/* Responses of GrabSnapshot */
+message GrabSnapshot_Responses {
+  sila2.org.silastandard.Binary ImagePayload = 1;  /* The captured frame as JPEG-encoded bytes. */
+}

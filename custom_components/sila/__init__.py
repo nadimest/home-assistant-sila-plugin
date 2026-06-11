@@ -41,7 +41,7 @@ from .coordinator import SilaConfigEntry, SilaCoordinator
 
 _LOGGER = logging.getLogger(__name__)
 
-PLATFORMS = [Platform.BUTTON, Platform.NUMBER, Platform.SENSOR]
+PLATFORMS = [Platform.BUTTON, Platform.IMAGE, Platform.NUMBER, Platform.SENSOR]
 
 CONFIG_SCHEMA = cv.config_entry_only_config_schema(DOMAIN)
 
@@ -108,6 +108,8 @@ async def async_setup(hass: HomeAssistant, config: dict[str, Any]) -> bool:
             raise HomeAssistantError(
                 f"SiLA command {feature_id}.{command_id} failed: {err}"
             ) from err
+        coordinator.last_command_parameters[(feature_id, command_id)] = parameters
+        coordinator.publish_command_responses(feature_id, command_id, response)
         if call.return_response:
             return dict(response._asdict()) if hasattr(response, "_asdict") else {}
         return None

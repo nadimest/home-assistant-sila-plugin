@@ -6,15 +6,18 @@ from typing import Set
 from sila2.client import SilaClient
 from sila2.framework import FullyQualifiedFeatureIdentifier
 
-from . import temperaturecontroller
+from . import camera, temperaturecontroller
 
 
 class Client(SilaClient):
+
+    Camera: camera.CameraClient
 
     TemperatureController: temperaturecontroller.TemperatureControllerClient
 
     _expected_features: Set[FullyQualifiedFeatureIdentifier] = {
         FullyQualifiedFeatureIdentifier("org.silastandard/core/SiLAService/v1"),
+        FullyQualifiedFeatureIdentifier("io.unitelabs/demo/Camera/v1"),
         FullyQualifiedFeatureIdentifier("io.unitelabs/demo/TemperatureController/v1"),
     }
 

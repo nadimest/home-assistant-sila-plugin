@@ -6,9 +6,14 @@ import threading
 import time
 from typing import TYPE_CHECKING
 
-from sila2.server import MetadataDict
+from sila2.server import MetadataDict, ObservableCommandInstance
 
-from ..generated.temperaturecontroller import Reset_Responses, SetTargetTemperature_Responses, TemperatureControllerBase
+from ..generated.temperaturecontroller import (
+    Equilibrate_Responses,
+    Reset_Responses,
+    SetTargetTemperature_Responses,
+    TemperatureControllerBase,
+)
 
 if TYPE_CHECKING:
     from ..server import Server
@@ -51,6 +56,17 @@ class TemperatureControllerImpl(TemperatureControllerBase):
     ) -> SetTargetTemperature_Responses:
         self._target = TargetTemperature
         return SetTargetTemperature_Responses()
+
+    def Equilibrate(
+        self, Duration: float, *, metadata: MetadataDict, instance: ObservableCommandInstance
+    ) -> Equilibrate_Responses:
+        steps = max(1, int(Duration / 0.1))
+        step_time = Duration / steps
+        for i in range(steps):
+            if self._stop.wait(step_time):
+                break
+            instance.progress = (i + 1) / steps
+        return Equilibrate_Responses(round(self._current, 2))
 
     def Reset(self, *, metadata: MetadataDict) -> Reset_Responses:
         self._target = DEFAULT_TARGET

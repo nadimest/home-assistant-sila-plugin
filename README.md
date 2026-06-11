@@ -17,6 +17,11 @@ dashboards, automations, alerting) works on top.
   - *Unobservable* properties are polled every 30 seconds.
   - SiLAService core properties appear as diagnostic entities.
 - **Buttons** for parameterless commands.
+- **Observable (long-running) commands**: a status sensor per command shows
+  idle/waiting/running/finished with live progress and estimated remaining
+  time as attributes; `sila_command_started` / `sila_command_finished` events
+  fire so automations can react to runs completing ("notify me when the
+  centrifuge finishes").
 - **`sila.call_command` service** for commands with parameters, usable from
   automations and scripts, with command responses available via
   *response variables*:
@@ -30,6 +35,10 @@ dashboards, automations, alerting) works on top.
     parameters:
       TargetTemperature: 37.0
   ```
+
+  For observable commands, `wait: false` returns immediately with the
+  execution UUID and lets the finished event signal completion; the default
+  `wait: true` blocks and returns the final responses.
 
 - **TLS that matches lab reality**: pin a server's self-signed certificate on
   first use (default), use the system CA store, or connect unencrypted to
@@ -84,8 +93,8 @@ on a dashboard graph.
 
 ## Roadmap
 
-- [x] Discovery, sensors, buttons, `call_command` service (this release)
-- [ ] Observable (long-running) commands with progress reporting and
+- [x] Discovery, sensors, buttons, `call_command` service
+- [x] Observable (long-running) commands with progress reporting and
       completion events
 - [ ] SiLA Client Metadata (e.g. lock controller) support
 - [ ] **Cloud gateway**: host a SiLA 2 v1.1 *server-initiated connection*

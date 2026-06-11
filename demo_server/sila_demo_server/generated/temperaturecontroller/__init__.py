@@ -2,7 +2,7 @@
 from .temperaturecontroller_base import TemperatureControllerBase
 from .temperaturecontroller_client import TemperatureControllerClient
 from .temperaturecontroller_feature import TemperatureControllerFeature
-from .temperaturecontroller_types import Reset_Responses, SetTargetTemperature_Responses
+from .temperaturecontroller_types import Equilibrate_Responses, Reset_Responses, SetTargetTemperature_Responses
 
 __all__ = [
     "TemperatureControllerBase",
@@ -10,4 +10,5 @@ __all__ = [
     "TemperatureControllerClient",
     "SetTargetTemperature_Responses",
     "Reset_Responses",
+    "Equilibrate_Responses",
 ]

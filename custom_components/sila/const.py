@@ -23,3 +23,15 @@ SERVICE_CALL_COMMAND = "call_command"
 ATTR_FEATURE = "feature"
 ATTR_COMMAND = "command"
 ATTR_PARAMETERS = "parameters"
+ATTR_WAIT = "wait"
+
+EVENT_COMMAND_STARTED = "sila_command_started"
+EVENT_COMMAND_FINISHED = "sila_command_finished"
+
+# Seconds between status/progress refreshes while an observable command runs.
+COMMAND_WATCH_INTERVAL = 1.0
+
+
+def command_update_signal(entry_id: str) -> str:
+    """Dispatcher signal for observable command execution updates."""
+    return f"{DOMAIN}_{entry_id}_command_update"

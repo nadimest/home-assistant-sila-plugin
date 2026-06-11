@@ -35,6 +35,28 @@
     </Parameter>
   </Command>
   <Command>
+    <Identifier>Equilibrate</Identifier>
+    <DisplayName>Equilibrate</DisplayName>
+    <Description>Waits for the temperature to settle at the target, reporting progress.</Description>
+    <Observable>Yes</Observable>
+    <Parameter>
+      <Identifier>Duration</Identifier>
+      <DisplayName>Duration</DisplayName>
+      <Description>Time to equilibrate, in seconds.</Description>
+      <DataType>
+        <Basic>Real</Basic>
+      </DataType>
+    </Parameter>
+    <Response>
+      <Identifier>FinalTemperature</Identifier>
+      <DisplayName>Final Temperature</DisplayName>
+      <Description>The temperature at the end of equilibration in degrees Celsius.</Description>
+      <DataType>
+        <Basic>Real</Basic>
+      </DataType>
+    </Response>
+  </Command>
+  <Command>
     <Identifier>Reset</Identifier>
     <DisplayName>Reset</DisplayName>
     <Description>Resets the target temperature to the default (21 degrees Celsius).</Description>

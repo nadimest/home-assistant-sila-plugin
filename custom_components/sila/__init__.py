@@ -15,14 +15,20 @@ from homeassistant.core import (
     ServiceResponse,
     SupportsResponse,
 )
-from homeassistant.exceptions import ConfigEntryNotReady, ServiceValidationError
+from homeassistant.exceptions import (
+    ConfigEntryNotReady,
+    HomeAssistantError,
+    ServiceValidationError,
+)
 from homeassistant.helpers import config_validation as cv, device_registry as dr
 
+from .command_runner import SilaCommandRunner
 from .connection import close_client, create_client, read_server_info
 from .const import (
     ATTR_COMMAND,
     ATTR_FEATURE,
     ATTR_PARAMETERS,
+    ATTR_WAIT,
     CONF_PINNED_CERT,
     CONF_TLS_MODE,
     DOMAIN,
@@ -42,6 +48,7 @@ SERVICE_CALL_COMMAND_SCHEMA = vol.Schema(
         vol.Required(ATTR_FEATURE): cv.string,
         vol.Required(ATTR_COMMAND): cv.string,
         vol.Optional(ATTR_PARAMETERS, default=dict): dict,
+        vol.Optional(ATTR_WAIT, default=True): cv.boolean,
     }
 )
 
@@ -61,19 +68,43 @@ async def async_setup(hass: HomeAssistant, config: dict[str, Any]) -> bool:
                 f"Server does not implement feature '{feature_id}'"
             )
         feature = coordinator.client._features[feature_id]
+
         if command_id in feature._observable_commands:
-            raise ServiceValidationError(
-                "Observable (long-running) commands are not supported yet"
+            execution = await coordinator.command_runner.async_start(
+                feature_id, command_id, parameters
             )
+            if not call.data[ATTR_WAIT]:
+                if call.return_response:
+                    return {"execution_uuid": execution.execution_uuid}
+                return None
+            await execution.task
+            if execution.error is not None:
+                raise HomeAssistantError(
+                    f"SiLA command {feature_id}.{command_id} failed: "
+                    f"{execution.error}"
+                )
+            if call.return_response:
+                return {
+                    "execution_uuid": execution.execution_uuid,
+                    "status": execution.status,
+                    "responses": execution.responses or {},
+                }
+            return None
+
         if command_id not in feature._unobservable_commands:
             raise ServiceValidationError(
                 f"Feature '{feature_id}' has no command '{command_id}'"
             )
 
         command = getattr(client_feature, command_id)
-        response = await hass.async_add_executor_job(
-            lambda: command(**parameters)
-        )
+        try:
+            response = await hass.async_add_executor_job(
+                lambda: command(**parameters)
+            )
+        except Exception as err:
+            raise HomeAssistantError(
+                f"SiLA command {feature_id}.{command_id} failed: {err}"
+            ) from err
         if call.return_response:
             return dict(response._asdict()) if hasattr(response, "_asdict") else {}
         return None
@@ -108,6 +139,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: SilaConfigEntry) -> bool
     coordinator = SilaCoordinator(hass, entry, client, server_info)
     await coordinator.async_config_entry_first_refresh()
     entry.runtime_data = coordinator
+    coordinator.command_runner = SilaCommandRunner(hass, entry)
 
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
     return True

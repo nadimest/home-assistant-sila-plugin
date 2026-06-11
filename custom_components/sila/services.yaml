@@ -20,3 +20,8 @@ call_command:
       example: '{"TargetTemperature": 37.0}'
       selector:
         object:
+    wait:
+      required: false
+      default: true
+      selector:
+        boolean:

@@ -8,6 +8,12 @@ package sila2.io.unitelabs.demo.temperaturecontroller.v1;
 service TemperatureController {
   /* Sets the target temperature. */
   rpc SetTargetTemperature (sila2.io.unitelabs.demo.temperaturecontroller.v1.SetTargetTemperature_Parameters) returns (sila2.io.unitelabs.demo.temperaturecontroller.v1.SetTargetTemperature_Responses) {}
+  /* Waits for the temperature to settle at the target, reporting progress. */
+  rpc Equilibrate (sila2.io.unitelabs.demo.temperaturecontroller.v1.Equilibrate_Parameters) returns (sila2.org.silastandard.CommandConfirmation) {}
+  /* Monitor the state of Equilibrate */
+  rpc Equilibrate_Info (sila2.org.silastandard.CommandExecutionUUID) returns (stream sila2.org.silastandard.ExecutionInfo) {}
+  /* Retrieve result of Equilibrate */
+  rpc Equilibrate_Result(sila2.org.silastandard.CommandExecutionUUID) returns (sila2.io.unitelabs.demo.temperaturecontroller.v1.Equilibrate_Responses) {}
   /* Resets the target temperature to the default (21 degrees Celsius). */
   rpc Reset (sila2.io.unitelabs.demo.temperaturecontroller.v1.Reset_Parameters) returns (sila2.io.unitelabs.demo.temperaturecontroller.v1.Reset_Responses) {}
   /* The current temperature in degrees Celsius. */
@@ -23,6 +29,16 @@ message SetTargetTemperature_Parameters {
 
 /* Responses of SetTargetTemperature */
 message SetTargetTemperature_Responses {
+}
+
+/* Parameters for Equilibrate */
+message Equilibrate_Parameters {
+  sila2.org.silastandard.Real Duration = 1;  /* Time to equilibrate, in seconds. */
+}
+
+/* Responses of Equilibrate */
+message Equilibrate_Responses {
+  sila2.org.silastandard.Real FinalTemperature = 1;  /* The temperature at the end of equilibration in degrees Celsius. */
 }
 
 /* Parameters for Reset */

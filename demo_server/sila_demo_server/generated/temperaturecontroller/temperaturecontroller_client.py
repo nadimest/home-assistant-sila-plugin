@@ -12,8 +12,13 @@ if TYPE_CHECKING:
 
     from typing import Iterable, Optional
 
-    from sila2.client import ClientMetadataInstance, ClientObservableProperty, ClientUnobservableProperty
-    from temperaturecontroller_types import Reset_Responses, SetTargetTemperature_Responses
+    from sila2.client import (
+        ClientMetadataInstance,
+        ClientObservableCommandInstance,
+        ClientObservableProperty,
+        ClientUnobservableProperty,
+    )
+    from temperaturecontroller_types import Equilibrate_Responses, Reset_Responses, SetTargetTemperature_Responses
 
 
 class TemperatureControllerClient:
@@ -42,5 +47,13 @@ class TemperatureControllerClient:
     def Reset(self, *, metadata: Optional[Iterable[ClientMetadataInstance]] = None) -> Reset_Responses:
         """
         Resets the target temperature to the default (21 degrees Celsius).
+        """
+        ...
+
+    def Equilibrate(
+        self, Duration: float, *, metadata: Optional[Iterable[ClientMetadataInstance]] = None
+    ) -> ClientObservableCommandInstance[Equilibrate_Responses]:
+        """
+        Waits for the temperature to settle at the target, reporting progress.
         """
         ...

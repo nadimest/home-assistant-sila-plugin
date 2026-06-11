@@ -2,12 +2,13 @@
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
+from datetime import timedelta
 from queue import Queue
 from typing import TYPE_CHECKING, Optional, Union
 
-from sila2.server import FeatureImplementationBase, MetadataDict
+from sila2.server import FeatureImplementationBase, MetadataDict, ObservableCommandInstance
 
-from .temperaturecontroller_types import Reset_Responses, SetTargetTemperature_Responses
+from .temperaturecontroller_types import Equilibrate_Responses, Reset_Responses, SetTargetTemperature_Responses
 
 if TYPE_CHECKING:
 
@@ -20,6 +21,8 @@ class TemperatureControllerBase(FeatureImplementationBase, ABC):
     _CurrentTemperature_producer_queue: Queue[Union[float, Exception]]
     _CurrentTemperature_current_value: float
 
+    Equilibrate_default_lifetime_of_execution: Optional[timedelta]
+
     def __init__(self, parent_server: Server):
         """
         Demo feature: controls and reports the temperature of a device.
@@ -27,6 +30,8 @@ class TemperatureControllerBase(FeatureImplementationBase, ABC):
         super().__init__(parent_server=parent_server)
 
         self._CurrentTemperature_producer_queue = Queue()
+
+        self.Equilibrate_default_lifetime_of_execution = None
 
     @abstractmethod
     def get_TargetTemperature(self, *, metadata: MetadataDict) -> float:
@@ -103,5 +108,25 @@ class TemperatureControllerBase(FeatureImplementationBase, ABC):
 
 
         :param metadata: The SiLA Client Metadata attached to the call
+
+        """
+
+    @abstractmethod
+    def Equilibrate(
+        self, Duration: float, *, metadata: MetadataDict, instance: ObservableCommandInstance
+    ) -> Equilibrate_Responses:
+        """
+        Waits for the temperature to settle at the target, reporting progress.
+
+
+        :param Duration: Time to equilibrate, in seconds.
+
+        :param metadata: The SiLA Client Metadata attached to the call
+        :param instance: The command instance, enabling sending status updates to subscribed clients
+
+        :return:
+
+            - FinalTemperature: The temperature at the end of equilibration in degrees Celsius.
+
 
         """

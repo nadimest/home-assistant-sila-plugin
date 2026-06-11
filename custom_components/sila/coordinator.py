@@ -4,10 +4,13 @@ from __future__ import annotations
 
 import logging
 from datetime import timedelta
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 import grpc
 from sila2.client import SilaClient
+
+if TYPE_CHECKING:
+    from .command_runner import SilaCommandRunner
 
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
@@ -52,6 +55,8 @@ class SilaCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         )
         self.client = client
         self.server_info = server_info
+        # Set right after construction in async_setup_entry.
+        self.command_runner: SilaCommandRunner = None  # type: ignore[assignment]
 
     async def _async_update_data(self) -> dict[str, Any]:
         return await self.hass.async_add_executor_job(self._fetch_all)

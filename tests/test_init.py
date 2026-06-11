@@ -146,3 +146,65 @@ async def test_call_command_service(hass: HomeAssistant, demo_server) -> None:
 
     await hass.config_entries.async_unload(entry.entry_id)
     await hass.async_block_till_done()
+
+
+async def test_observable_command(hass: HomeAssistant, demo_server) -> None:
+    """Observable commands run via the service, fire events, update sensors."""
+    server, port = demo_server
+
+    entry = MockConfigEntry(
+        domain=DOMAIN,
+        unique_id=str(server.server_uuid),
+        data={
+            CONF_HOST: "127.0.0.1",
+            CONF_PORT: port,
+            CONF_TLS_MODE: TLS_MODE_INSECURE,
+            CONF_PINNED_CERT: None,
+        },
+    )
+    entry.add_to_hass(hass)
+    assert await hass.config_entries.async_setup(entry.entry_id)
+    await hass.async_block_till_done()
+
+    status_entity = "sensor.demo_thermostat_temperature_controller_equilibrate_status"
+    assert hass.states.get(status_entity).state == "idle"
+
+    events = []
+    hass.bus.async_listen("sila_command_started", events.append)
+    hass.bus.async_listen("sila_command_finished", events.append)
+
+    device = dr.async_get(hass).async_get_device(
+        identifiers={(DOMAIN, str(server.server_uuid))}
+    )
+    response = await hass.services.async_call(
+        DOMAIN,
+        "call_command",
+        {
+            "device_id": device.id,
+            "feature": "TemperatureController",
+            "command": "Equilibrate",
+            "parameters": {"Duration": 0.5},
+            "wait": True,
+        },
+        blocking=True,
+        return_response=True,
+    )
+    await hass.async_block_till_done()
+
+    assert response["status"] == "finishedSuccessfully"
+    assert "FinalTemperature" in response["responses"]
+
+    event_types = [e.event_type for e in events]
+    assert "sila_command_started" in event_types
+    assert "sila_command_finished" in event_types
+    finished = next(e for e in events if e.event_type == "sila_command_finished")
+    assert finished.data["device_id"] == device.id
+    assert finished.data["status"] == "finishedSuccessfully"
+    assert finished.data["responses"] is not None
+
+    state = hass.states.get(status_entity)
+    assert state.state == "finishedSuccessfully"
+    assert state.attributes["responses"] is not None
+
+    await hass.config_entries.async_unload(entry.entry_id)
+    await hass.async_block_till_done()

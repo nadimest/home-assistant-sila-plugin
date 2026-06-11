@@ -40,6 +40,14 @@ async def async_setup_entry(
             entities.append(
                 SilaCommandButton(coordinator, feature_id, feature, command_id, command)
             )
+        for command_id, command in feature._observable_commands.items():
+            if command.parameters.fields:
+                continue
+            entities.append(
+                SilaObservableCommandButton(
+                    coordinator, feature_id, feature, command_id, command
+                )
+            )
 
     async_add_entities(entities)
 
@@ -72,3 +80,13 @@ class SilaCommandButton(SilaEntity, ButtonEntity):
             raise HomeAssistantError(
                 f"SiLA command {self._feature_id}.{self._command_id} failed: {err}"
             ) from err
+
+
+class SilaObservableCommandButton(SilaCommandButton):
+    """Starts a parameterless observable command; progress is reported by
+    the matching command status sensor."""
+
+    async def async_press(self) -> None:
+        await self.coordinator.command_runner.async_start(
+            self._feature_id, self._command_id, {}
+        )

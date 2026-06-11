@@ -9,10 +9,12 @@ from sila2.client.subscription import Subscription
 
 from homeassistant.components.sensor import SensorEntity
 from homeassistant.core import HomeAssistant, callback
+from homeassistant.helpers.dispatcher import async_dispatcher_connect
 from homeassistant.helpers.entity import EntityCategory
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
-from .const import SILA_SERVICE_FEATURE
+from .command_runner import STATUS_IDLE, CommandExecution
+from .const import SILA_SERVICE_FEATURE, command_update_signal
 from .coordinator import SilaConfigEntry, SilaCoordinator, property_key
 from .entity import SilaEntity, render_state
 
@@ -37,6 +39,12 @@ async def async_setup_entry(
             entities.append(
                 SilaObservablePropertySensor(
                     coordinator, feature_id, feature, prop_id, prop
+                )
+            )
+        for command_id, command in feature._observable_commands.items():
+            entities.append(
+                SilaCommandStatusSensor(
+                    coordinator, entry, feature_id, feature, command_id, command
                 )
             )
 
@@ -156,3 +164,70 @@ class SilaObservablePropertySensor(SilaPropertySensorBase):
     async def _async_resubscribe(self) -> None:
         await self._async_unsubscribe()
         await self._async_subscribe()
+
+
+class SilaCommandStatusSensor(SilaEntity, SensorEntity):
+    """Execution status of an observable (long-running) SiLA command.
+
+    State is idle/waiting/running/finishedSuccessfully/finishedWithError;
+    progress, remaining time, and final responses appear as attributes.
+    Updates arrive via dispatcher from the command runner.
+    """
+
+    def __init__(
+        self,
+        coordinator: SilaCoordinator,
+        entry: SilaConfigEntry,
+        feature_id: str,
+        feature: Any,
+        command_id: str,
+        command: Any,
+    ) -> None:
+        super().__init__(coordinator)
+        self._entry = entry
+        self._feature_id = feature_id
+        self._command_id = command_id
+        self._attr_unique_id = (
+            f"{coordinator.server_info.server_uuid}_{feature_id}_{command_id}_status"
+        )
+        self._attr_name = f"{feature._display_name} {command._display_name} status"
+        self._attr_native_value = STATUS_IDLE
+
+    async def async_added_to_hass(self) -> None:
+        await super().async_added_to_hass()
+        self.async_on_remove(
+            async_dispatcher_connect(
+                self.hass,
+                command_update_signal(self._entry.entry_id),
+                self._handle_execution_update,
+            )
+        )
+        # Pick up an execution already running at entity setup time.
+        execution = self.coordinator.command_runner.executions.get(
+            (self._feature_id, self._command_id)
+        )
+        if execution is not None:
+            self._apply_execution(execution)
+
+    @callback
+    def _handle_execution_update(self, execution: CommandExecution) -> None:
+        if (execution.feature_id, execution.command_id) != (
+            self._feature_id,
+            self._command_id,
+        ):
+            return
+        self._apply_execution(execution)
+        self.async_write_ha_state()
+
+    @callback
+    def _apply_execution(self, execution: CommandExecution) -> None:
+        self._attr_native_value = execution.status
+        self._attr_extra_state_attributes = {
+            "feature": self._feature_id,
+            "command": self._command_id,
+            "execution_uuid": execution.execution_uuid,
+            "progress": execution.progress,
+            "estimated_remaining_seconds": execution.remaining_seconds,
+            "responses": execution.responses,
+            "error": execution.error,
+        }

@@ -57,6 +57,10 @@
         "parameters": {
           "name": "Parameters",
           "description": "Command parameters as a mapping of parameter identifier to value."
+        },
+        "wait": {
+          "name": "Wait for completion",
+          "description": "For observable (long-running) commands: wait until the command finishes and return its responses. If off, the service returns immediately with the execution UUID; completion fires the sila_command_finished event."
         }
       }
     }

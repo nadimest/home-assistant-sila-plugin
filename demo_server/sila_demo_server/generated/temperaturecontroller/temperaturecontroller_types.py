@@ -12,3 +12,11 @@ class SetTargetTemperature_Responses(NamedTuple):
 class Reset_Responses(NamedTuple):
 
     pass
+
+
+class Equilibrate_Responses(NamedTuple):
+
+    FinalTemperature: float
+    """
+    The temperature at the end of equilibration in degrees Celsius.
+    """

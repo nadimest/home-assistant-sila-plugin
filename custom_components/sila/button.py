@@ -80,6 +80,8 @@ async def async_setup_entry(
 class SilaCommandButton(SilaEntity, ButtonEntity):
     """Fires a parameterless SiLA command."""
 
+    _attr_icon = "mdi:play-circle-outline"
+
     def __init__(
         self,
         coordinator: SilaCoordinator,

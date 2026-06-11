@@ -73,6 +73,30 @@ async def test_config_flow_and_setup(hass: HomeAssistant, demo_server) -> None:
     # Button for the parameterless Reset command
     assert hass.states.get("button.demo_thermostat_temperature_controller_reset") is not None
 
+    # Number entity for the single-numeric-parameter SetTargetTemperature,
+    # mirroring the TargetTemperature property
+    number_entity = (
+        "number.demo_thermostat_temperature_controller_set_target_temperature"
+    )
+    number_state = hass.states.get(number_entity)
+    assert number_state is not None
+    assert float(number_state.state) == 21.0
+
+    await hass.services.async_call(
+        "number",
+        "set_value",
+        {"entity_id": number_entity, "value": 37.5},
+        blocking=True,
+    )
+    await hass.async_block_till_done()
+    assert server.temperaturecontroller._target == 37.5
+    assert float(hass.states.get(number_entity).state) == 37.5
+
+    # Observable command with one numeric parameter also gets a number;
+    # setting it starts a run.
+    equilibrate_number = "number.demo_thermostat_temperature_controller_equilibrate"
+    assert hass.states.get(equilibrate_number) is not None
+
     # Observable property sensor gets push updates
     state = hass.states.get("sensor.demo_thermostat_temperature_controller_current_temperature")
     assert state is not None

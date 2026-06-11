@@ -1,0 +1,7 @@
+{
+  "services": {
+    "call_command": {
+      "service": "mdi:play-box-outline"
+    }
+  }
+}

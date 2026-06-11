@@ -16,7 +16,11 @@ dashboards, automations, alerting) works on top.
   - *Observable* properties are push-updated live via gRPC subscription streams.
   - *Unobservable* properties are polled every 30 seconds.
   - SiLAService core properties appear as diagnostic entities.
-- **Buttons** for parameterless commands.
+- **Buttons** for parameterless commands, and **number entities** for
+  commands taking a single numeric parameter (set the number → the command
+  fires; when the feature has a property named like the parameter, the
+  entity shows its live value). Commands with multiple or non-numeric
+  parameters are invoked via the `sila.call_command` service.
 - **Observable (long-running) commands**: a status sensor per command shows
   idle/waiting/running/finished with live progress and estimated remaining
   time as attributes; `sila_command_started` / `sila_command_finished` events
@@ -92,6 +96,15 @@ any locally listening SiLA server into a cloud endpoint
 cloud connectivity protocol generically, so it can also retrofit
 server-initiated connections onto instruments whose SiLA stack predates
 v1.1.
+
+## Branding
+
+The integration card logo in HA is served from the central
+[home-assistant/brands](https://github.com/home-assistant/brands) repo —
+integrations cannot ship it locally. Ready-to-submit assets live in
+`brands/custom_integrations/sila/`; PR that folder to the brands repo and
+every HA instance will pick up the logo. Until then HA shows a placeholder.
+Entity icons (flask, progress, play) are set in code and work out of the box.
 
 ## Architecture notes
 

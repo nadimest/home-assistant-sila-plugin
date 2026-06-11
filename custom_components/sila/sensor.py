@@ -100,6 +100,7 @@ class SilaPropertySensorBase(SilaEntity, SensorEntity):
             # Core feature: expose as diagnostics, not regular sensors.
             self._attr_entity_category = EntityCategory.DIAGNOSTIC
             self._attr_name = prop._display_name
+            self._attr_icon = "mdi:information-outline"
         else:
             self._attr_name = f"{feature._display_name} {prop._display_name}"
 
@@ -117,6 +118,8 @@ class SilaPropertySensorBase(SilaEntity, SensorEntity):
 class SilaPolledPropertySensor(SilaPropertySensorBase):
     """Unobservable SiLA property, polled via the coordinator."""
 
+    _attr_icon = "mdi:flask-outline"
+
     def _handle_coordinator_update(self) -> None:
         key = property_key(self._feature_id, self._prop_id)
         self._update_from_value((self.coordinator.data or {}).get(key))
@@ -130,6 +133,8 @@ class SilaPolledPropertySensor(SilaPropertySensorBase):
 
 class SilaObservablePropertySensor(SilaPropertySensorBase):
     """Observable SiLA property, push-updated via a gRPC subscription."""
+
+    _attr_icon = "mdi:flask"
 
     def __init__(self, *args: Any) -> None:
         super().__init__(*args)
@@ -201,6 +206,8 @@ class SilaCommandStatusSensor(SilaEntity, SensorEntity):
     progress, remaining time, and final responses appear as attributes.
     Updates arrive via dispatcher from the command runner.
     """
+
+    _attr_icon = "mdi:progress-clock"
 
     def __init__(
         self,

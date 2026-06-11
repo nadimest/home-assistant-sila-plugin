@@ -72,6 +72,9 @@ class SilaCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                 key = property_key(feature_id, prop_id)
                 try:
                     data[key] = getattr(client_feature, prop_id).get()
+                except ConnectionError as err:
+                    # Cloud-connected server hung up.
+                    raise UpdateFailed(f"SiLA server disconnected: {err}") from err
                 except grpc.RpcError as err:
                     if err.code() in (
                         grpc.StatusCode.UNAVAILABLE,

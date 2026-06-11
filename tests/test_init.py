@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import asyncio
+import socket
 from ipaddress import ip_address
 
 import pytest
@@ -13,9 +15,11 @@ from homeassistant.helpers.service_info.zeroconf import ZeroconfServiceInfo
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
 from custom_components.sila.const import (
+    CONF_MODE,
     CONF_PINNED_CERT,
     CONF_TLS_MODE,
     DOMAIN,
+    MODE_CLOUD,
     TLS_MODE_INSECURE,
 )
 
@@ -31,7 +35,13 @@ async def test_config_flow_and_setup(hass: HomeAssistant, demo_server) -> None:
     result = await hass.config_entries.flow.async_init(
         DOMAIN, context={"source": SOURCE_USER}
     )
+    assert result["type"] == "menu"
+
+    result = await hass.config_entries.flow.async_configure(
+        result["flow_id"], {"next_step_id": "connect"}
+    )
     assert result["type"] == "form"
+    assert result["step_id"] == "connect"
 
     result = await hass.config_entries.flow.async_configure(
         result["flow_id"],
@@ -106,6 +116,119 @@ async def test_zeroconf_discovery_flow(hass: HomeAssistant, demo_server) -> None
     assert result["reason"] == "already_configured"
 
     entry = hass.config_entries.async_entries(DOMAIN)[0]
+    await hass.config_entries.async_unload(entry.entry_id)
+    await hass.async_block_till_done()
+
+
+async def test_cloud_gateway(hass: HomeAssistant, demo_server) -> None:
+    """A SiLA server dialing into the cloud endpoint becomes a device.
+
+    Exercises the full v1.1 server-initiated connection path: handshake,
+    feature discovery, polled + streamed properties, and commands — all
+    multiplexed over one bidirectional stream.
+    """
+    from demo_server.cloud_bridge import CloudBridge
+
+    server, server_port = demo_server
+    with socket.socket() as sock:
+        sock.bind(("127.0.0.1", 0))
+        cloud_port = sock.getsockname()[1]
+
+    entry = MockConfigEntry(
+        domain=DOMAIN,
+        unique_id=f"cloud_{cloud_port}",
+        data={CONF_MODE: MODE_CLOUD, CONF_PORT: cloud_port},
+    )
+    entry.add_to_hass(hass)
+    assert await hass.config_entries.async_setup(entry.entry_id)
+    await hass.async_block_till_done()
+
+    bridge = CloudBridge(
+        f"127.0.0.1:{server_port}", f"127.0.0.1:{cloud_port}"
+    )
+    bridge_task = asyncio.create_task(bridge.run())
+
+    target_entity = "sensor.demo_thermostat_temperature_controller_target_temperature"
+    try:
+        # Wait for handshake + feature discovery + entity creation.
+        for _ in range(200):
+            await asyncio.sleep(0.05)
+            if hass.states.get(target_entity) is not None:
+                break
+        await hass.async_block_till_done()
+
+        state = hass.states.get(target_entity)
+        assert state is not None, "cloud-connected server did not produce entities"
+        assert float(state.state) == 21.0
+
+        device = dr.async_get(hass).async_get_device(
+            identifiers={(DOMAIN, str(server.server_uuid))}
+        )
+        assert device is not None
+        assert device.model == "DemoThermostat"
+
+        # Unobservable command over the stream
+        await hass.services.async_call(
+            DOMAIN,
+            "call_command",
+            {
+                "device_id": device.id,
+                "feature": "TemperatureController",
+                "command": "SetTargetTemperature",
+                "parameters": {"TargetTemperature": 39.0},
+            },
+            blocking=True,
+        )
+        assert server.temperaturecontroller._target == 39.0
+
+        # Observable command over the stream, waiting for completion
+        response = await hass.services.async_call(
+            DOMAIN,
+            "call_command",
+            {
+                "device_id": device.id,
+                "feature": "TemperatureController",
+                "command": "Equilibrate",
+                "parameters": {"Duration": 0.3},
+                "wait": True,
+            },
+            blocking=True,
+            return_response=True,
+        )
+        assert response["status"] == "finishedSuccessfully"
+        assert "FinalTemperature" in response["responses"]
+    finally:
+        bridge_task.cancel()
+        try:
+            await bridge_task
+        except (asyncio.CancelledError, Exception):  # noqa: BLE001
+            pass
+
+    # Disconnect marks the device unavailable...
+    for _ in range(100):
+        await asyncio.sleep(0.05)
+        if hass.states.get(target_entity).state == "unavailable":
+            break
+    assert hass.states.get(target_entity).state == "unavailable"
+
+    # ...and a redial recovers it without new entities or devices.
+    bridge = CloudBridge(f"127.0.0.1:{server_port}", f"127.0.0.1:{cloud_port}")
+    bridge_task = asyncio.create_task(bridge.run())
+    try:
+        for _ in range(200):
+            await asyncio.sleep(0.05)
+            if hass.states.get(target_entity).state not in ("unavailable", "unknown"):
+                break
+        await hass.async_block_till_done()
+        # Target was set to 39.0 over the previous connection.
+        assert float(hass.states.get(target_entity).state) == 39.0
+    finally:
+        bridge_task.cancel()
+        try:
+            await bridge_task
+        except (asyncio.CancelledError, Exception):  # noqa: BLE001
+            pass
+
     await hass.config_entries.async_unload(entry.entry_id)
     await hass.async_block_till_done()
 

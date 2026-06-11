@@ -22,6 +22,7 @@ from homeassistant.exceptions import (
 )
 from homeassistant.helpers import config_validation as cv, device_registry as dr
 
+from .cloud import SilaCloudGateway
 from .command_runner import SilaCommandRunner
 from .connection import close_client, create_client, read_server_info
 from .const import (
@@ -29,9 +30,11 @@ from .const import (
     ATTR_FEATURE,
     ATTR_PARAMETERS,
     ATTR_WAIT,
+    CONF_MODE,
     CONF_PINNED_CERT,
     CONF_TLS_MODE,
     DOMAIN,
+    MODE_CLOUD,
     SERVICE_CALL_COMMAND,
 )
 from .coordinator import SilaConfigEntry, SilaCoordinator
@@ -120,7 +123,14 @@ async def async_setup(hass: HomeAssistant, config: dict[str, Any]) -> bool:
 
 
 async def async_setup_entry(hass: HomeAssistant, entry: SilaConfigEntry) -> bool:
-    """Connect to a SiLA server and set up its device."""
+    """Set up a SiLA server connection or the cloud gateway endpoint."""
+    if entry.data.get(CONF_MODE) == MODE_CLOUD:
+        gateway = SilaCloudGateway(hass, entry, entry.data[CONF_PORT])
+        entry.runtime_data = gateway
+        await gateway.async_start()
+        await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
+        return True
+
     try:
         client = await hass.async_add_executor_job(
             create_client,
@@ -139,17 +149,22 @@ async def async_setup_entry(hass: HomeAssistant, entry: SilaConfigEntry) -> bool
     coordinator = SilaCoordinator(hass, entry, client, server_info)
     await coordinator.async_config_entry_first_refresh()
     entry.runtime_data = coordinator
-    coordinator.command_runner = SilaCommandRunner(hass, entry)
+    coordinator.command_runner = SilaCommandRunner(hass, entry, coordinator)
 
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
     return True
 
 
 async def async_unload_entry(hass: HomeAssistant, entry: SilaConfigEntry) -> bool:
-    """Unload a SiLA server."""
+    """Unload a SiLA server or the cloud gateway."""
     unload_ok = await hass.config_entries.async_unload_platforms(entry, PLATFORMS)
     if unload_ok:
-        await hass.async_add_executor_job(close_client, entry.runtime_data.client)
+        if isinstance(entry.runtime_data, SilaCloudGateway):
+            await entry.runtime_data.async_stop()
+        else:
+            await hass.async_add_executor_job(
+                close_client, entry.runtime_data.client
+            )
     return unload_ok
 
 
@@ -158,12 +173,21 @@ def _coordinator_for_device(hass: HomeAssistant, device_id: str) -> SilaCoordina
     device = dr.async_get(hass).async_get(device_id)
     if device is None:
         raise ServiceValidationError(f"Unknown device: {device_id}")
+    server_uuids = {
+        identifier[1] for identifier in device.identifiers if identifier[0] == DOMAIN
+    }
     for entry_id in device.config_entries:
         entry = hass.config_entries.async_get_entry(entry_id)
         if (
-            entry is not None
-            and entry.domain == DOMAIN
-            and entry.state is ConfigEntryState.LOADED
+            entry is None
+            or entry.domain != DOMAIN
+            or entry.state is not ConfigEntryState.LOADED
         ):
-            return entry.runtime_data
+            continue
+        if isinstance(entry.runtime_data, SilaCloudGateway):
+            for uuid in server_uuids:
+                if (coordinator := entry.runtime_data.coordinators.get(uuid)) is not None:
+                    return coordinator
+            continue
+        return entry.runtime_data
     raise ServiceValidationError(f"Device {device_id} is not a loaded SiLA server")

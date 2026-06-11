@@ -3,6 +3,20 @@
     "flow_title": "{name}",
     "step": {
       "user": {
+        "title": "SiLA 2",
+        "menu_options": {
+          "connect": "Connect to a SiLA server",
+          "cloud": "Host a cloud endpoint (server-initiated connections)"
+        }
+      },
+      "cloud": {
+        "title": "Host a SiLA cloud endpoint",
+        "description": "Home Assistant will listen for SiLA 2 v1.1 server-initiated connections on this port. Instruments configured with this gateway as their cloud endpoint appear automatically as devices.",
+        "data": {
+          "port": "Port"
+        }
+      },
+      "connect": {
         "title": "Connect to a SiLA server",
         "data": {
           "host": "Host",

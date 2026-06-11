@@ -13,23 +13,24 @@ from homeassistant.helpers.dispatcher import async_dispatcher_connect
 from homeassistant.helpers.entity import EntityCategory
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
+from .cloud import SilaCloudGateway
 from .command_runner import STATUS_IDLE, CommandExecution
-from .const import SILA_SERVICE_FEATURE, command_update_signal
+from .const import (
+    SILA_SERVICE_FEATURE,
+    cloud_new_server_signal,
+    command_update_signal,
+)
 from .coordinator import SilaConfigEntry, SilaCoordinator, property_key
 from .entity import SilaEntity, render_state
 
 _LOGGER = logging.getLogger(__name__)
 
 
-async def async_setup_entry(
-    hass: HomeAssistant,
-    entry: SilaConfigEntry,
-    async_add_entities: AddEntitiesCallback,
-) -> None:
-    """Create one sensor per SiLA property, across all features."""
-    coordinator = entry.runtime_data
+def _build_sensors(
+    coordinator: SilaCoordinator, entry: SilaConfigEntry
+) -> list[SensorEntity]:
+    """One sensor per SiLA property plus one status sensor per observable command."""
     entities: list[SensorEntity] = []
-
     for feature_id, feature in coordinator.client._features.items():
         for prop_id, prop in feature._unobservable_properties.items():
             entities.append(
@@ -47,8 +48,35 @@ async def async_setup_entry(
                     coordinator, entry, feature_id, feature, command_id, command
                 )
             )
+    return entities
 
-    async_add_entities(entities)
+
+async def async_setup_entry(
+    hass: HomeAssistant,
+    entry: SilaConfigEntry,
+    async_add_entities: AddEntitiesCallback,
+) -> None:
+    if isinstance(entry.runtime_data, SilaCloudGateway):
+        gateway = entry.runtime_data
+        added: set[str] = set()
+
+        @callback
+        def _async_add_server(coordinator: SilaCoordinator) -> None:
+            if (uuid := coordinator.server_info.server_uuid) in added:
+                return
+            added.add(uuid)
+            async_add_entities(_build_sensors(coordinator, entry))
+
+        entry.async_on_unload(
+            async_dispatcher_connect(
+                hass, cloud_new_server_signal(entry.entry_id), _async_add_server
+            )
+        )
+        for coordinator in gateway.coordinators.values():
+            _async_add_server(coordinator)
+        return
+
+    async_add_entities(_build_sensors(entry.runtime_data, entry))
 
 
 class SilaPropertySensorBase(SilaEntity, SensorEntity):
@@ -211,7 +239,8 @@ class SilaCommandStatusSensor(SilaEntity, SensorEntity):
 
     @callback
     def _handle_execution_update(self, execution: CommandExecution) -> None:
-        if (execution.feature_id, execution.command_id) != (
+        if (execution.server_uuid, execution.feature_id, execution.command_id) != (
+            self.coordinator.server_info.server_uuid,
             self._feature_id,
             self._command_id,
         ):

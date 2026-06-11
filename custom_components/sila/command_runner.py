@@ -28,7 +28,7 @@ from .const import (
 )
 
 if TYPE_CHECKING:
-    from .coordinator import SilaConfigEntry
+    from .coordinator import SilaConfigEntry, SilaCoordinator
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -39,6 +39,7 @@ STATUS_IDLE = "idle"
 class CommandExecution:
     """Tracks one observable command execution."""
 
+    server_uuid: str
     feature_id: str
     command_id: str
     execution_uuid: str
@@ -53,9 +54,15 @@ class CommandExecution:
 class SilaCommandRunner:
     """Starts and watches observable command executions for one server."""
 
-    def __init__(self, hass: HomeAssistant, entry: SilaConfigEntry) -> None:
+    def __init__(
+        self,
+        hass: HomeAssistant,
+        entry: SilaConfigEntry,
+        coordinator: SilaCoordinator,
+    ) -> None:
         self._hass = hass
         self._entry = entry
+        self._coordinator = coordinator
         # Latest execution per (feature, command), for the status sensors.
         self.executions: dict[tuple[str, str], CommandExecution] = {}
 
@@ -63,8 +70,7 @@ class SilaCommandRunner:
         self, feature_id: str, command_id: str, parameters: dict[str, Any]
     ) -> CommandExecution:
         """Start an observable command and watch it until it finishes."""
-        coordinator = self._entry.runtime_data
-        command = getattr(getattr(coordinator.client, feature_id), command_id)
+        command = getattr(getattr(self._coordinator.client, feature_id), command_id)
         try:
             instance = await self._hass.async_add_executor_job(
                 lambda: command(**parameters)
@@ -75,6 +81,7 @@ class SilaCommandRunner:
             ) from err
 
         execution = CommandExecution(
+            server_uuid=self._coordinator.server_info.server_uuid,
             feature_id=feature_id,
             command_id=command_id,
             execution_uuid=str(instance.execution_uuid),
@@ -127,7 +134,7 @@ class SilaCommandRunner:
         )
 
     def _fire_event(self, event_type: str, execution: CommandExecution) -> None:
-        info = self._entry.runtime_data.server_info
+        info = self._coordinator.server_info
         device = dr.async_get(self._hass).async_get_device(
             identifiers={(DOMAIN, info.server_uuid)}
         )

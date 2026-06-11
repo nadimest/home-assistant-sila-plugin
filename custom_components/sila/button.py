@@ -10,24 +10,21 @@ import logging
 from typing import Any
 
 from homeassistant.components.button import ButtonEntity
-from homeassistant.core import HomeAssistant
+from homeassistant.core import HomeAssistant, callback
 from homeassistant.exceptions import HomeAssistantError
+from homeassistant.helpers.dispatcher import async_dispatcher_connect
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
-from .const import SILA_SERVICE_FEATURE
+from .cloud import SilaCloudGateway
+from .const import SILA_SERVICE_FEATURE, cloud_new_server_signal
 from .coordinator import SilaConfigEntry, SilaCoordinator
 from .entity import SilaEntity
 
 _LOGGER = logging.getLogger(__name__)
 
 
-async def async_setup_entry(
-    hass: HomeAssistant,
-    entry: SilaConfigEntry,
-    async_add_entities: AddEntitiesCallback,
-) -> None:
-    """Create a button for every parameterless unobservable command."""
-    coordinator = entry.runtime_data
+def _build_buttons(coordinator: SilaCoordinator) -> list[ButtonEntity]:
+    """One button per parameterless command."""
     entities: list[ButtonEntity] = []
 
     for feature_id, feature in coordinator.client._features.items():
@@ -49,7 +46,35 @@ async def async_setup_entry(
                 )
             )
 
-    async_add_entities(entities)
+    return entities
+
+
+async def async_setup_entry(
+    hass: HomeAssistant,
+    entry: SilaConfigEntry,
+    async_add_entities: AddEntitiesCallback,
+) -> None:
+    if isinstance(entry.runtime_data, SilaCloudGateway):
+        gateway = entry.runtime_data
+        added: set[str] = set()
+
+        @callback
+        def _async_add_server(coordinator: SilaCoordinator) -> None:
+            if (uuid := coordinator.server_info.server_uuid) in added:
+                return
+            added.add(uuid)
+            async_add_entities(_build_buttons(coordinator))
+
+        entry.async_on_unload(
+            async_dispatcher_connect(
+                hass, cloud_new_server_signal(entry.entry_id), _async_add_server
+            )
+        )
+        for coordinator in gateway.coordinators.values():
+            _async_add_server(coordinator)
+        return
+
+    async_add_entities(_build_buttons(entry.runtime_data))
 
 
 class SilaCommandButton(SilaEntity, ButtonEntity):

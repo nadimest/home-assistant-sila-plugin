@@ -25,10 +25,14 @@ from .connection import (
     read_server_info,
 )
 from .const import (
+    CONF_MODE,
     CONF_PINNED_CERT,
     CONF_TLS_MODE,
+    DEFAULT_CLOUD_PORT,
     DEFAULT_PORT,
     DOMAIN,
+    MODE_CLOUD,
+    MODE_CONNECT,
     TLS_MODE_PIN,
     TLS_MODES,
 )
@@ -80,6 +84,7 @@ def _validate_connection(
         close_client(client)
 
     entry_data = {
+        CONF_MODE: MODE_CONNECT,
         CONF_HOST: host,
         CONF_PORT: port,
         CONF_TLS_MODE: tls_mode,
@@ -113,7 +118,32 @@ class SilaConfigFlow(ConfigFlow, domain=DOMAIN):
     async def async_step_user(
         self, user_input: dict[str, Any] | None = None
     ) -> ConfigFlowResult:
-        """Handle manual setup."""
+        """Choose between connecting to a server and hosting a cloud endpoint."""
+        return self.async_show_menu(step_id="user", menu_options=["connect", "cloud"])
+
+    async def async_step_cloud(
+        self, user_input: dict[str, Any] | None = None
+    ) -> ConfigFlowResult:
+        """Host a SiLA 2 v1.1 cloud endpoint for server-initiated connections."""
+        if user_input is not None:
+            port = user_input[CONF_PORT]
+            await self.async_set_unique_id(f"cloud_{port}")
+            self._abort_if_unique_id_configured()
+            return self.async_create_entry(
+                title=f"SiLA Cloud Gateway (port {port})",
+                data={CONF_MODE: MODE_CLOUD, CONF_PORT: port},
+            )
+        return self.async_show_form(
+            step_id="cloud",
+            data_schema=vol.Schema(
+                {vol.Required(CONF_PORT, default=DEFAULT_CLOUD_PORT): int}
+            ),
+        )
+
+    async def async_step_connect(
+        self, user_input: dict[str, Any] | None = None
+    ) -> ConfigFlowResult:
+        """Handle manual setup of an outbound server connection."""
         errors: dict[str, str] = {}
         if user_input is not None:
             try:
@@ -139,7 +169,7 @@ class SilaConfigFlow(ConfigFlow, domain=DOMAIN):
                 )
 
         return self.async_show_form(
-            step_id="user", data_schema=STEP_USER_SCHEMA, errors=errors
+            step_id="connect", data_schema=STEP_USER_SCHEMA, errors=errors
         )
 
     async def async_step_zeroconf(

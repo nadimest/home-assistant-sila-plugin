@@ -43,6 +43,13 @@ dashboards, automations, alerting) works on top.
 - **TLS that matches lab reality**: pin a server's self-signed certificate on
   first use (default), use the system CA store, or connect unencrypted to
   development servers.
+- **Cloud gateway (SiLA 2 v1.1 server-initiated connections)**: Home
+  Assistant can host a `CloudClientEndpoint`, so instruments that *dial out*
+  instead of listening — e.g. devices behind NAT or strict lab firewalls —
+  connect into HA and appear as devices automatically, with the same
+  sensors, buttons, commands, and events as discovered servers. Disconnects
+  mark the device unavailable; redials recover it in place. Add it via
+  *Add integration → SiLA 2 → Host a cloud endpoint*.
 
 ## Installation
 
@@ -79,6 +86,13 @@ The `demo_server/` package is a simulated "Demo Thermostat" SiLA server
 that drifts toward a settable target — handy for watching live push updates
 on a dashboard graph.
 
+`demo_server/cloud_bridge.py` is a standalone byte-level proxy that dials
+any locally listening SiLA server into a cloud endpoint
+(`./scripts/dev.sh bridge`). It implements the server side of the v1.1
+cloud connectivity protocol generically, so it can also retrofit
+server-initiated connections onto instruments whose SiLA stack predates
+v1.1.
+
 ## Architecture notes
 
 - Built on the reference [`sila2`](https://gitlab.com/SiLA2/sila_python) Python
@@ -96,8 +110,10 @@ on a dashboard graph.
 - [x] Discovery, sensors, buttons, `call_command` service
 - [x] Observable (long-running) commands with progress reporting and
       completion events
+- [x] **Cloud gateway**: SiLA 2 v1.1 *server-initiated connection* endpoint
+      hosted inside Home Assistant
+- [ ] TLS for the cloud endpoint (currently plaintext — run it on a trusted
+      network or behind a TLS-terminating proxy)
 - [ ] SiLA Client Metadata (e.g. lock controller) support
-- [ ] **Cloud gateway**: host a SiLA 2 v1.1 *server-initiated connection*
-      endpoint inside Home Assistant, so instruments outside the local
-      network can connect in
+- [ ] Binary transfer (large payloads) over cloud connections
 - [ ] Unit metadata → `native_unit_of_measurement`, long-term statistics

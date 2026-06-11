@@ -1,5 +1,10 @@
 # SiLA 2 integration for Home Assistant
 
+[![Tests](https://github.com/nadimest/home-assistant-sila-plugin/actions/workflows/test.yml/badge.svg)](https://github.com/nadimest/home-assistant-sila-plugin/actions/workflows/test.yml)
+[![Validate](https://github.com/nadimest/home-assistant-sila-plugin/actions/workflows/validate.yml/badge.svg)](https://github.com/nadimest/home-assistant-sila-plugin/actions/workflows/validate.yml)
+[![GitHub release](https://img.shields.io/github/v/release/nadimest/home-assistant-sila-plugin)](https://github.com/nadimest/home-assistant-sila-plugin/releases)
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
+
 Connect [SiLA 2](https://sila-standard.com) laboratory instruments to
 [Home Assistant](https://www.home-assistant.io). SiLA servers on your network
 are discovered automatically and appear as Home Assistant devices — their

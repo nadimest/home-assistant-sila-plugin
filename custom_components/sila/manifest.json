@@ -9,7 +9,7 @@
     "zeroconf"
   ],
   "documentation": "https://github.com/nadimest/home-assistant-sila-plugin",
-  "integration_type": "device",
+  "integration_type": "hub",
   "iot_class": "local_push",
   "issue_tracker": "https://github.com/nadimest/home-assistant-sila-plugin/issues",
   "loggers": [

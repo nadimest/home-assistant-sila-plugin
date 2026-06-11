@@ -1,0 +1,7 @@
+# pytest-homeassistant-custom-component pins the matching homeassistant
+# version itself.
+pytest-homeassistant-custom-component
+sila2==0.14.0
+# HA pins the protobuf runtime; newer grpcio-tools emit gencode that
+# refuses to load on it (see README architecture notes).
+grpcio-tools<1.76

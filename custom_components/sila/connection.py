@@ -1,17 +1,21 @@
 """Blocking connection helpers for the sila2 client.
 
 Everything in this module performs blocking network I/O and must be
-called through ``hass.async_add_executor_job``.
+called through ``hass.async_add_executor_job``. sila2 itself is imported
+lazily via sila_import.ensure_sila2() — see that module for why.
 """
 
 from __future__ import annotations
 
 import ssl
 from dataclasses import dataclass
-
-from sila2.client import SilaClient
+from typing import TYPE_CHECKING
 
 from .const import TLS_MODE_INSECURE, TLS_MODE_PIN, TLS_MODE_SYSTEM
+from .sila_import import ensure_sila2
+
+if TYPE_CHECKING:
+    from sila2.client import SilaClient
 
 
 @dataclass(slots=True)
@@ -38,6 +42,9 @@ def create_client(
     pinned_cert: str | None = None,
 ) -> SilaClient:
     """Connect to a SiLA server. Blocking."""
+    ensure_sila2()
+    from sila2.client import SilaClient  # noqa: PLC0415
+
     if tls_mode == TLS_MODE_INSECURE:
         return SilaClient(host, port, insecure=True)
     if tls_mode == TLS_MODE_PIN:

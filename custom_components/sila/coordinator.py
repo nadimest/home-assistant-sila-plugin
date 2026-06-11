@@ -7,9 +7,10 @@ from datetime import timedelta
 from typing import TYPE_CHECKING, Any
 
 import grpc
-from sila2.client import SilaClient
 
 if TYPE_CHECKING:
+    from sila2.client import SilaClient
+
     from .command_runner import SilaCommandRunner
 
 from homeassistant.config_entries import ConfigEntry

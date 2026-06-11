@@ -3,9 +3,7 @@
 from __future__ import annotations
 
 import logging
-from typing import Any
-
-from sila2.client.subscription import Subscription
+from typing import TYPE_CHECKING, Any
 
 from homeassistant.components.sensor import SensorEntity
 from homeassistant.core import HomeAssistant, callback
@@ -22,6 +20,9 @@ from .const import (
 )
 from .coordinator import SilaConfigEntry, SilaCoordinator, property_key
 from .entity import SilaEntity, render_state
+
+if TYPE_CHECKING:
+    from sila2.client.subscription import Subscription
 
 _LOGGER = logging.getLogger(__name__)
 

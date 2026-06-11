@@ -20,24 +20,43 @@ from typing import TYPE_CHECKING, Any, Callable
 from uuid import uuid4
 
 import grpc
-from sila2.features.silaservice import SiLAServiceFeature
-from sila2.framework.command.execution_info import CommandExecutionStatus
-from sila2.framework.feature import Feature
 
 from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers.dispatcher import async_dispatcher_send
 
-from .cloud_proto import SiLAClientMessage, cloud_pb2_grpc
 from .connection import SilaServerInfo
 from .const import cloud_new_server_signal
+from .sila_import import ensure_sila2
 
 if TYPE_CHECKING:
+    from sila2.framework.feature import Feature
+
     from .coordinator import SilaConfigEntry, SilaCoordinator
 
 _LOGGER = logging.getLogger(__name__)
 
 REQUEST_TIMEOUT = 30
 COMMAND_TIMEOUT = 300
+
+
+def _proto():
+    """The runtime-compiled cloud connector modules (import deferred).
+
+    First call compiles protos (blocking); SilaCloudGateway.async_start
+    front-loads it in the executor, so calls on the event loop afterwards
+    are plain sys.modules hits.
+    """
+    from . import cloud_proto  # noqa: PLC0415
+
+    return cloud_proto
+
+
+def _execution_status():
+    from sila2.framework.command.execution_info import (  # noqa: PLC0415
+        CommandExecutionStatus,
+    )
+
+    return CommandExecutionStatus
 
 
 class CloudDisconnectedError(ConnectionError):
@@ -74,7 +93,7 @@ class CloudConnection:
         return self._closed
 
     def _new_message(self) -> Any:
-        return SiLAClientMessage(requestUUID=str(uuid4()))
+        return _proto().SiLAClientMessage(requestUUID=str(uuid4()))
 
     async def async_send(self, msg: Any) -> None:
         if self._closed:
@@ -189,7 +208,7 @@ class CloudSubscription:
         self._conn.unregister_stream(self._request_uuid)
         if self._conn.closed:
             return
-        msg = SiLAClientMessage(requestUUID=self._request_uuid)
+        msg = _proto().SiLAClientMessage(requestUUID=self._request_uuid)
         msg.cancelObservablePropertySubscription.SetInParent()
         await self._conn.async_send(msg)
 
@@ -203,16 +222,17 @@ class CloudObservableCommandInstance:
         self._conn = conn
         self._command = command
         self.execution_uuid = execution_uuid
-        self.status: CommandExecutionStatus | None = None
+        self.status: Any | None = None
         self.progress: float | None = None
         self.estimated_remaining_time: timedelta | None = None
         self._info_uuid: str | None = None
 
     @property
     def done(self) -> bool:
+        status_cls = _execution_status()
         return self._conn.closed or self.status in (
-            CommandExecutionStatus.finishedSuccessfully,
-            CommandExecutionStatus.finishedWithError,
+            status_cls.finishedSuccessfully,
+            status_cls.finishedWithError,
         )
 
     async def async_subscribe_execution_info(self) -> None:
@@ -226,7 +246,7 @@ class CloudObservableCommandInstance:
 
     def _handle_info(self, server_msg: Any) -> None:
         info = server_msg.observableCommandExecutionInfo.executionInfo
-        self.status = CommandExecutionStatus[
+        self.status = _execution_status()[
             type(info).CommandStatus.Name(info.commandStatus)
         ]
         if info.HasField("progressInfo"):
@@ -399,6 +419,9 @@ class CloudSilaClient:
 
     async def async_handshake(self) -> SilaServerInfo:
         """Fetch server identity and all feature definitions over the stream."""
+        from sila2.features.silaservice import SiLAServiceFeature  # noqa: PLC0415
+        from sila2.framework.feature import Feature  # noqa: PLC0415
+
         sila_service = await self._hass.async_add_executor_job(
             Feature, SiLAServiceFeature._feature_definition
         )
@@ -438,8 +461,17 @@ class SilaCloudGateway:
         self.coordinators: dict[str, SilaCoordinator] = {}
 
     async def async_start(self) -> None:
+        # Front-load all heavy, descriptor-registering imports in the
+        # executor so later event-loop usage is import-free.
+        def _preload() -> None:
+            ensure_sila2()
+            _proto()
+            _execution_status()
+
+        await self._hass.async_add_executor_job(_preload)
+
         self._server = grpc.aio.server()
-        cloud_pb2_grpc.add_CloudClientEndpointServicer_to_server(
+        _proto().cloud_pb2_grpc.add_CloudClientEndpointServicer_to_server(
             _CloudEndpointServicer(self), self._server
         )
         self._server.add_insecure_port(f"[::]:{self._port}")
@@ -497,7 +529,14 @@ class SilaCloudGateway:
                 )
 
 
-class _CloudEndpointServicer(cloud_pb2_grpc.CloudClientEndpointServicer):
+class _CloudEndpointServicer:
+    """CloudClientEndpoint implementation.
+
+    Deliberately not subclassing the generated servicer base: that class
+    lives in the lazily imported proto module, and gRPC's registration
+    helper only needs the ConnectSiLAServer attribute.
+    """
+
     def __init__(self, gateway: SilaCloudGateway) -> None:
         self._gateway = gateway
 

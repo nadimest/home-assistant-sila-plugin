@@ -470,7 +470,12 @@ class SilaCloudGateway:
 
         await self._hass.async_add_executor_job(_preload)
 
-        self._server = grpc.aio.server()
+        # Generous message cap: snapshot-style commands embed whole images
+        # in one SiLAServerMessage (SiLA spec allows up to 2 MB binaries,
+        # some servers exceed it; gRPC's 4 MB default is too tight).
+        self._server = grpc.aio.server(
+            options=[("grpc.max_receive_message_length", 32 * 1024 * 1024)]
+        )
         _proto().cloud_pb2_grpc.add_CloudClientEndpointServicer_to_server(
             _CloudEndpointServicer(self), self._server
         )

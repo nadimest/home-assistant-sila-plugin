@@ -43,6 +43,7 @@ def ensure_sila2() -> None:
             )
         try:
             _heal_occupied_pool()
+            _seed_pregenerated()
             import sila2.client  # noqa: F401, PLC0415
             import sila2.features.silaservice  # noqa: F401, PLC0415
             import sila2.framework.feature  # noqa: F401, PLC0415
@@ -112,6 +113,47 @@ def _pin_framework_pb2() -> None:
 
     _pin("SiLAFramework_pb2", sila_error._pb2_module)
     _pin("SiLABinaryTransfer_pb2", bt_error.binary_transfer_pb2_module)
+
+
+def _seed_pregenerated() -> None:
+    """Pin sila2's pregenerated pb2 modules before importing sila2.
+
+    sila2 ships pregenerated gencode for its framework protos AND
+    re-generates the same protos with protoc on import — and the two
+    serialize differently (message order). Whether protobuf's pool
+    tolerates re-registering the differing copy depends on the import
+    order of google.protobuf internals; in Home Assistant's import
+    environment it does not, and the sila2 import dies with "duplicate
+    file name SiLAFramework.proto". Loading the pregenerated modules
+    first and pinning them makes every later registrar reuse them, so
+    exactly one flavor is ever registered.
+    """
+    import importlib.util  # noqa: PLC0415
+    import sys  # noqa: PLC0415
+    from os.path import join  # noqa: PLC0415
+
+    spec = importlib.util.find_spec("sila2")
+    if spec is None or not spec.submodule_search_locations:
+        return
+    pb2_dir = join(spec.submodule_search_locations[0], "framework", "pb2")
+
+    for module_name in ("SiLAFramework_pb2", "SiLABinaryTransfer_pb2"):
+        if module_name in _PINNED:
+            continue  # healed from the pool already
+        module_spec = importlib.util.spec_from_file_location(
+            module_name, join(pb2_dir, f"{module_name}.py")
+        )
+        module = importlib.util.module_from_spec(module_spec)
+        # Visible before exec: SiLABinaryTransfer_pb2 imports
+        # SiLAFramework_pb2 by bare name during its own execution.
+        sys.modules[module_name] = module
+        try:
+            module_spec.loader.exec_module(module)
+        except BaseException:
+            del sys.modules[module_name]
+            raise
+        _pin(module_name, module)
+        sys.modules[f"sila2.framework.pb2.{module_name}"] = module
 
 
 def _heal_occupied_pool() -> None:
